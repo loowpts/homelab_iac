@@ -1,0 +1,223 @@
+---
+- name: UFW for webservers
+  hosts: webservers
+  become: true
+
+  tasks:
+    - name: Allow SSH from worker
+      ufw:
+        rule: allow
+        from_ip: "{{ worker_ip }}"
+        port: 22
+        proto: tcp
+
+    - name: Allow HTTP
+      ufw:
+        rule: allow
+        port: 80
+        proto: tcp
+
+    - name: Allow HTTPS
+      ufw:
+        rule: allow
+        port: 443
+        proto: tcp
+
+    - name: Allow 5000
+      ufw:
+        rule: allow
+        from_ip: "{{ worker_ip }}"
+        port: 5000
+        proto: tcp
+
+    - name: Allow 9100
+      ufw:
+        rule: allow
+        from_ip: "{{ monitor_ip }}"
+        port: 9100
+        proto: tcp
+
+    - name: Allow 9113
+      ufw:
+        rule: allow
+        from_ip: "{{ monitor_ip }}"
+        port: 9113
+        proto: tcp
+
+    - name: Enable ufw
+      ufw:
+        state: enabled
+
+- name: Настройка UFW для databases
+  hosts: databases
+  become: true
+
+  tasks:
+    - name: Allow SSH from worker
+      ufw:
+        rule: allow
+        from_ip: "{{ worker_ip }}"
+        port: 22
+        proto: tcp
+    
+    - name: Allow PostgreSQL from webservers
+      ufw:
+        rule: allow
+        from_ip: "{{ item }}"
+        port: 5432
+        proto: tcp
+      loop:
+        - "{{ web01_ip }}"
+        - "{{ web02_ip }}"
+
+    - name: Allow 9100
+      ufw:
+        rule: allow
+        from_ip: "{{ monitor_ip }}"
+        port: 9100
+        proto: tcp
+
+    - name: Allow 9187
+      ufw:
+        rule: allow
+        from_ip: "{{ monitor_ip }}"
+        port: 9187
+        proto: tcp
+
+    - name: Enable UFW
+      ufw:
+        state: enabled
+
+- name: UFW for cache
+  hosts: cache
+  become: true
+
+  tasks:
+    - name: Allow SSH from worker
+      ufw:
+        rule: allow
+        from_ip: "{{ worker_ip }}"
+        port: 22
+        proto: tcp
+
+    - name: Allow Redis from webservers
+      ufw:
+        rule: allow
+        from_ip: "{{ item }}"
+        port: 6379
+        proto: tcp
+      loop:
+        - "{{ web01_ip }}"
+        - "{{ web02_ip }}"
+    
+    - name: Allow 9100
+      ufw:
+        rule: allow
+        from_ip: "{{ monitor_ip }}"
+        port: 9100
+        proto: tcp
+
+    - name: Allow 9121
+      ufw:
+        rule: allow
+        from_ip: "{{ monitor_ip }}"
+        port: 9121
+        proto: tcp
+    
+    - name: Enable ufw
+      ufw:
+        state: enabled
+
+- name: UFW for balancer
+  hosts: balancer
+  become: true
+
+  tasks:
+    - name: Allow ssh from worker
+      ufw:
+        rule: allow
+        from_ip: "{{ worker_ip }}"
+        port: 22
+        proto: tcp
+
+    - name: Allow HTTP
+      ufw:
+        rule: allow
+        port: 80
+        proto: tcp
+    
+    - name: Allow HTTPS
+      ufw:
+        rule: allow
+        port: 443
+        proto: tcp
+    
+    - name: Allow DNS from lab network
+      ufw:
+        rule: allow
+        from_ip: 192.168.0.0/24
+        port: 53
+        proto: any
+
+    - name: Allow 9100
+      ufw:
+        rule: allow
+        from_ip: "{{ monitor_ip }}"
+        port: 9100
+        proto: tcp
+
+    - name: Allow 9113
+      ufw:
+        rule: allow
+        from_ip: "{{ monitor_ip }}"
+        port: 9113
+        proto: tcp
+    
+    - name: Enable ufw
+      ufw:
+        state: enabled
+
+
+- name: Настройка UFW для monitor
+  hosts: monitoring
+  become: true
+
+  tasks:
+    - name: Allow 3000/tcp
+      ufw:
+        rule: allow
+        from_ip: 192.168.0.0/24
+        port: 3000
+        proto: tcp
+    
+    - name: Allow 9090/tcp
+      ufw:
+        rule: allow
+        from_ip: 192.168.0.0/24
+        port: 9090
+        proto: tcp
+
+    - name: Allow 22 from worker
+      ufw:
+        rule: allow
+        from_ip: "{{ worker_ip }}"
+        port: 22
+        proto: tcp
+
+    - name: Allow 9093
+      ufw:
+        rule: allow
+        from_ip: 192.168.0.0/24
+        port: 9093
+        proto: tcp
+    
+    - name: Allow 3100
+      ufw:
+        rule: allow
+        from_ip: 192.168.0.0/24
+        port: 3100
+        proto: tcp
+
+    - name: Enable ufw
+      ufw:
+        state: enabled
