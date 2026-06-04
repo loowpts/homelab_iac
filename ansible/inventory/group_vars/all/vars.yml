@@ -1,0 +1,29 @@
+---
+timezone: Europe/Moscow
+ntp_server: pool.ntp.org
+admin_user: deploy
+
+base_packages:
+  - curl
+  - wget
+  - git
+  - vim
+  - htop
+  - net-tools
+  - unzip
+  - ca-certificates
+  - gnupg
+  - lsb-release
+
+worker_ip: 192.168.0.20
+web01_ip: 192.168.0.22
+web02_ip: 192.168.0.23
+db01_ip: 192.168.0.24
+cache01_ip: 192.168.0.25
+lb01_ip: 192.168.0.26
+monitor_ip: 192.168.0.27
+lab_network: 192.168.0.0/24
+
+db_app_password: "{{ vault_db_app_password }}"
+redis_password: "{{ vault_redis_password }}"
+postgres_exporter_password: "{{ vault_postgres_exporter_password }}"
