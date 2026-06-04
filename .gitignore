@@ -1,0 +1,19 @@
+# Ansible secrets (зашифруй vault.yml перед тем как убрать отсюда)
+ansible/inventory/group_vars/all/vault.yml
+.vault_pass
+
+# Terraform secrets
+terraform/credentials.auto.tfvars
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+
+# SSH ключи
+*.pem
+id_rsa
+id_ed25519
+lab_key
+
+# macOS
+.DS_Store
