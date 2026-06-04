@@ -1,0 +1,65 @@
+---
+- name: Настройка сервера db01
+  hosts: databases
+  become: true
+
+  tasks:
+    - name: Установка PostgreSQL
+      apt:
+        name: 
+          - postgresql
+          - python3-psycopg2
+        state: present
+
+    - name: Запустить и включить PostgreSQL
+      service:
+        name: postgresql
+        enabled: yes
+        state: started
+
+    - name: Создать database
+      postgresql_db:
+        name: appdb
+        state: present
+      become_user: postgres
+
+    - name: Созданию database user
+      postgresql_user:
+        name: appuser
+        password: "{{ db_app_password }}"
+        state: present
+      become_user: postgres
+
+    - name: Grant privileges
+      postgresql_privs:
+        database: appdb
+        role: appuser
+        privs: ALL
+        type: database
+        state: present
+      become_user: postgres
+
+    - name: Configure pg_hba conf for staging
+      lineinfile:
+        path: /etc/postgresql/16/main/pg_hba.conf
+        line: "host appdb appuser {{ web01_ip }}/32 scram-sha-256"
+      notify: Restart postgresql
+
+    - name: Configure pg_hba conf for production
+      lineinfile:
+        path: /etc/postgresql/16/main/pg_hba.conf
+        line: "host appdb appuser {{ web02_ip }}/32 scram-sha-256"
+      notify: Restart postgresql
+    
+    - name: Configure listen_addresses
+      lineinfile:
+        path: /etc/postgresql/16/main/postgresql.conf
+        regexp: '^#?listen_addresses'
+        line: "listen_addresses = 'localhost,{{ db01_ip }}'"
+      notify: Restart postgresql
+    
+  handlers:
+    - name: Restart postgresql
+      service:
+        name: postgresql
+        state: restarted

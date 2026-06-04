@@ -1,0 +1,51 @@
+---
+- name: Настройка cache01
+  hosts: cache
+  become: true
+
+  tasks:
+    - name: Установка Redis
+      apt:
+        name:
+          - redis
+        state: present
+
+    - name: Запустить и включить redis-server
+      service:
+        name: redis-server
+        enabled: yes
+        state: started
+    
+    - name: Configure bind address
+      lineinfile:
+        path: /etc/redis/redis.conf
+        regexp: '^#?bind'
+        line: "bind 127.0.0.1 {{ cache01_ip }}"
+      notify: Restart redis-server
+
+    - name: Configure password
+      lineinfile:
+        path: /etc/redis/redis.conf
+        regexp: '^#?requirepass'
+        line: "requirepass {{ redis_password }}"
+      notify: Restart redis-server
+    
+    - name: Configure AOF
+      lineinfile:
+        path: /etc/redis/redis.conf
+        regexp: '^#?appendonly'
+        line: "appendonly yes"
+      notify: Restart redis-server
+
+    - name: Configure appendfsync
+      lineinfile:
+        path: /etc/redis/redis.conf
+        regexp: '^#?appendfsync'
+        line: "appendfsync everysec"
+      notify: Restart redis-server
+
+  handlers:
+    - name: Restart redis-server
+      service:
+        name: redis-server
+        state: restarted

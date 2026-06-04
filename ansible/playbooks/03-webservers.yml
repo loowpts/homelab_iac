@@ -1,0 +1,59 @@
+---
+- name: Настройка app серверов (staging + production)
+  hosts: webservers
+  become: true
+
+  tasks:
+    - name: Добавить GPG ключ Docker
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+    
+    - name: Добавить репозиторий Docker
+      apt_repository:
+        repo: "deb https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: Установить Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Добавить deploy в группу docker
+      user:
+        name: deploy
+        group: docker
+        append: yes
+    
+    - name: Запустить и включить Docker
+      service:
+        name: docker
+        enabled: yes
+        state: started
+
+    - name: Установить nginx
+      apt:
+        name: nginx
+        state: present
+
+    - name: Запустить и включить nginx
+      service:
+        name: nginx
+        enabled: yes
+        state: started
+
+    # Директория для приложений
+    # CI/CD будет деплоить сюда через SSH
+    - name: Создать /srv/app
+      file:
+        path: /srv/app
+        state: directory
+        owner: deploy
+        group: deploy
+        mode: "0755"
+    
