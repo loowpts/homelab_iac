@@ -1,0 +1,227 @@
+---
+- name: Настройка monitor
+  hosts: monitoring
+  become: true
+
+  vars:
+    prometheus_version: "2.51.0"
+    grafana_version: "10.4.2"
+    loki_version: "3.0.0"
+
+  tasks:
+
+    # === Prometheus ===
+
+    - name: Создать пользователя prometheus
+      user:
+        name: prometheus
+        shell: /bin/false
+        create_home: false
+        system: true
+
+    - name: Создать директории для Prometheus
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: prometheus
+        group: prometheus
+        mode: "0755"
+      loop:
+        - /etc/prometheus
+        - /var/lib/prometheus
+
+    - name: Скачать Prometheus
+      get_url:
+        url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz"
+        dest: /tmp/prometheus.tar.gz
+        mode: "0644"
+
+    - name: Распаковать Prometheus
+      unarchive:
+        src: /tmp/prometheus.tar.gz
+        dest: /tmp/
+        remote_src: yes
+        creates: "/tmp/prometheus-{{ prometheus_version }}.linux-amd64/prometheus"
+
+    - name: Скопировать бинарники Prometheus
+      copy:
+        src: "/tmp/prometheus-{{ prometheus_version }}.linux-amd64/{{ item }}"
+        dest: "/usr/local/bin/{{ item }}"
+        owner: prometheus
+        group: prometheus
+        mode: "0755"
+        remote_src: yes
+      loop:
+        - prometheus
+        - promtool
+
+    - name: Скопировать consoles
+      command:
+        cmd: "cp -r /tmp/prometheus-{{ prometheus_version }}.linux-amd64/consoles /etc/prometheus/consoles"
+        creates: /etc/prometheus/consoles
+
+    - name: Скопировать console_libraries
+      command:
+        cmd: "cp -r /tmp/prometheus-{{ prometheus_version }}.linux-amd64/console_libraries /etc/prometheus/console_libraries"
+        creates: /etc/prometheus/console_libraries
+
+    - name: Задеплоить prometheus.yml
+      template:
+        src: prometheus.yml
+        dest: /etc/prometheus/prometheus.yml
+        owner: prometheus
+        group: prometheus
+        mode: "0644"
+      notify: Restart prometheus
+
+    - name: Задеплоить alerts.yml
+      template:
+        src: alerts.yml
+        dest: /etc/prometheus/alerts.yml
+        owner: prometheus
+        group: prometheus
+        mode: "0644"
+      notify: Restart prometheus
+
+    - name: Systemd сервис для Prometheus
+      copy:
+        dest: /etc/systemd/system/prometheus.service
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Prometheus
+          After=network.target
+
+          [Service]
+          User=prometheus
+          ExecStart=/usr/local/bin/prometheus \
+              --config.file=/etc/prometheus/prometheus.yml \
+              --storage.tsdb.path=/var/lib/prometheus/
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+      notify:
+        - Reload systemd
+        - Restart prometheus
+
+    - name: Включить и запустить Prometheus
+      systemd:
+        name: prometheus
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    # === Grafana ===
+
+    - name: Установить зависимость musl
+      apt:
+        name: musl
+        state: present
+
+    - name: Скачать Grafana deb
+      get_url:
+        url: "https://dl.grafana.com/oss/release/grafana_{{ grafana_version }}_amd64.deb"
+        dest: /tmp/grafana.deb
+        mode: "0644"
+
+    - name: Установить Grafana
+      apt:
+        deb: /tmp/grafana.deb
+        state: present
+
+    - name: Включить и запустить Grafana
+      systemd:
+        name: grafana-server
+        enabled: yes
+        state: started
+
+    # === Loki ===
+
+    - name: Установить unzip
+      apt:
+        name: unzip
+        state: present
+
+    - name: Скачать Loki
+      get_url:
+        url: "https://github.com/grafana/loki/releases/download/v{{ loki_version }}/loki-linux-amd64.zip"
+        dest: /tmp/loki.zip
+        mode: "0644"
+
+    - name: Распаковать Loki
+      unarchive:
+        src: /tmp/loki.zip
+        dest: /tmp/
+        remote_src: yes
+        creates: /tmp/loki-linux-amd64
+
+    - name: Скопировать бинарник Loki
+      copy:
+        src: /tmp/loki-linux-amd64
+        dest: /usr/local/bin/loki
+        owner: root
+        mode: "0755"
+        remote_src: yes
+
+    - name: Создать директории для Loki
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: prometheus
+        group: prometheus
+        mode: "0755"
+      loop:
+        - /etc/loki
+        - /var/lib/loki
+
+    - name: Задеплоить loki.yml
+      template:
+        src: loki.yml
+        dest: /etc/loki/loki.yml
+        owner: prometheus
+        group: prometheus
+        mode: "0644"
+      notify: Restart loki
+
+    - name: Systemd сервис для Loki
+      copy:
+        dest: /etc/systemd/system/loki.service
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Loki
+          After=network.target
+
+          [Service]
+          User=prometheus
+          ExecStart=/usr/local/bin/loki --config.file=/etc/loki/loki.yml
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+      notify:
+        - Reload systemd
+        - Restart loki
+
+    - name: Включить и запустить Loki
+      systemd:
+        name: loki
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+  handlers:
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Restart prometheus
+      service:
+        name: prometheus
+        state: restarted
+
+    - name: Restart loki
+      service:
+        name: loki
+        state: restarted

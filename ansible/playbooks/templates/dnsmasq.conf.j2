@@ -1,0 +1,20 @@
+# Слушать на всех нужных интерфейсах
+listen-address=127.0.0.1,192.168.0.26  # IP lb01
+
+# Домен лабы
+domain=lab.local
+domain-needed
+bogus-priv
+
+# A-записи всех VM
+address=/worker.lab.local/192.168.0.20
+address=/wb01.lab.local/192.168.0.22
+address=/wb02.lab.local/192.168.0.23
+address=/db01.lab.local/192.168.0.24
+address=/cache01.lab.local/192.168.0.25
+address=/lb01.lab.local/192.168.0.26
+address=/monitor.lab.local/192.168.0.27
+
+# Форвардить внешние запросы
+server=8.8.8.8
+server=1.1.1.1

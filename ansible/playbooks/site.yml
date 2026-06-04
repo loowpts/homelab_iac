@@ -1,0 +1,13 @@
+---
+
+- import_playbook: 01-base.yml
+- import_playbook: 02-setting_ufw.yml
+- import_playbook: 03-webservers.yml
+- import_playbook: 04-databases.yml
+- import_playbook: 05-cache.yml
+- import_playbook: 06-setup_nginx_exporter.yml
+- import_playbook: 07-setup_postgres_exporter.yml
+- import_playbook: 08-setup_redis_exporter.yml
+- import_playbook: 09-lb01.yml
+- import_playbook: 10-monitoring.yml
+- import_playbook: 11-promtail.yml

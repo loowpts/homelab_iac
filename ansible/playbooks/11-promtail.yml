@@ -1,0 +1,86 @@
+---
+- name: Установка Promtail на все VM
+  hosts: all
+  become: true
+
+  vars:
+    loki_version: "3.0.0"
+
+  tasks:
+    - name: Установить unzip
+      apt:
+        name: unzip
+        state: present
+
+    - name: Скачать Promtail
+      get_url:
+        url: "https://github.com/grafana/loki/releases/download/v{{ loki_version }}/promtail-linux-amd64.zip"
+        dest: /tmp/promtail.zip
+        mode: "0644"
+
+    - name: Распаковать Promtail
+      unarchive:
+        src: /tmp/promtail.zip
+        dest: /tmp/
+        remote_src: yes
+        creates: /tmp/promtail-linux-amd64
+
+    - name: Скопировать Promtail в /usr/local/bin
+      copy:
+        src: /tmp/promtail-linux-amd64
+        dest: /usr/local/bin/promtail
+        owner: root
+        mode: "0755"
+        remote_src: yes
+
+    - name: Создать директорию для конфига Promtail
+      file:
+        path: /etc/promtail
+        state: directory
+        owner: root
+        mode: "0755"
+
+    - name: Задеплоить конфиг Promtail
+      template:
+        src: promtail.yml.j2
+        dest: /etc/promtail/promtail.yml
+        owner: root
+        mode: "0644"
+      notify: Restart promtail
+
+    - name: Systemd сервис для Promtail
+      copy:
+        dest: /etc/systemd/system/promtail.service
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Promtail
+          After=network.target
+
+          [Service]
+          User=root
+          ExecStart=/usr/local/bin/promtail --config.file=/etc/promtail/promtail.yml
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+      notify:
+        - Reload systemd
+        - Restart promtail
+
+    - name: Включить и запустить Promtail
+      systemd:
+        name: promtail
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+  handlers:
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Restart promtail
+      service:
+        name: promtail
+        state: restarted
