@@ -1,0 +1,61 @@
+---
+- name: Установка Postgres Exporter
+  hosts: databases
+  become: true
+
+  tasks:
+    - name: Создать пользователя prometheus для мониторинга
+      postgresql_user:
+        name: prometheus
+        password: "{{ postgres_exporter_password }}"
+        state: present
+      become_user: postgres
+
+    - name: Выдать права pg_monitor
+      community.postgresql.postgresql_membership:
+        group: pg_monitor
+        target_roles: prometheus
+        state: present
+      become_user: postgres
+
+    - name: Установка Postgres Exporter
+      get_url:
+        url: "https://github.com/prometheus-community/postgres_exporter/releases/download/v0.15.0/postgres_exporter-0.15.0.linux-amd64.tar.gz"
+        dest: /tmp/postgres_exporter-0.15.0.linux-amd64.tar.gz
+
+    - name: Распаковать Postgres Exporter
+      unarchive:
+        src: /tmp/postgres_exporter-0.15.0.linux-amd64.tar.gz
+        dest: /tmp/
+        remote_src: yes
+
+    - name: Переместить бинарный файл Postgres Exporter
+      copy:
+        src: /tmp/postgres_exporter-0.15.0.linux-amd64/postgres_exporter
+        dest: /usr/local/bin/postgres_exporter
+        mode: '0755'
+        remote_src: yes
+
+    - name: Создать systemd unit файл для Postgres Exporter
+      copy:
+        dest: /etc/systemd/system/postgres_exporter.service
+        content: |
+          [Unit]
+          Description=Postgres Exporter
+          After=network.target
+
+          [Service]
+          User=node_exporter
+          Environment=DATA_SOURCE_NAME=postgresql://prometheus:{{ postgres_exporter_password }}@localhost:5432/postgres?sslmode=disable
+          ExecStart=/usr/local/bin/postgres_exporter
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target  
+
+    - name: Запустить и включить сервис Postgres Exporter
+      systemd:
+        name: postgres_exporter
+        enabled: yes
+        state: started
+          

@@ -1,0 +1,81 @@
+---
+
+- name: Setup nginx exporter
+  hosts: webservers:balancer
+  become: true
+
+  tasks:
+    - name: Установить nginx
+      apt:
+        name:
+          - nginx
+        state: present
+
+    - name: Записать stub_status.conf
+      copy:
+        dest: /etc/nginx/sites-available/stub_status.conf
+        content: |
+          server {
+              listen 8080;
+              server_name localhost;
+
+              location /stub_status {
+                  stub_status;
+                  allow 127.0.0.1;
+                  deny all;
+              }
+          }
+
+    - name: Включить конфигурацию stub_status
+      file:
+        src: /etc/nginx/sites-available/stub_status.conf
+        dest: /etc/nginx/sites-enabled/stub_status.conf
+        state: link
+      notify: Restart Nginx
+
+    - name: Установка Nginx Exporter
+      get_url:
+        url: "https://github.com/nginxinc/nginx-prometheus-exporter/releases/download/v1.1.0/nginx-prometheus-exporter_1.1.0_linux_amd64.tar.gz"
+        dest: /tmp/nginx-prometheus-exporter_1.1.0_linux_amd64.tar.gz
+    
+    - name: Распаковать Nginx Exporter
+      unarchive:
+        src: /tmp/nginx-prometheus-exporter_1.1.0_linux_amd64.tar.gz
+        dest: /tmp/
+        remote_src: yes     
+  
+    - name: Копировать Nginx Exporter в /usr/local/bin
+      copy:
+        src: /tmp/nginx-prometheus-exporter
+        dest: /usr/local/bin/nginx-prometheus-exporter
+        mode: '0755'
+        remote_src: yes
+
+    - name: Создание systemd сервиса для Nginx Exporter
+      copy:
+        dest: /etc/systemd/system/nginx_exporter.service
+        content: |
+          [Unit]
+          Description=Nginx Exporter
+          After=network.target
+
+          [Service]
+          User=node_exporter
+          ExecStart=/usr/local/bin/nginx-prometheus-exporter \
+              -nginx.scrape-uri=http://localhost:8080/stub_status
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Запустить Nginx Exporter
+      systemd:
+        name: nginx_exporter
+        state: started
+        enabled: yes
+
+  handlers:
+    - name: Restart Nginx
+      systemd:
+        name: nginx
+        state: reloaded

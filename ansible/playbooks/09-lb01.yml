@@ -1,0 +1,95 @@
+---
+- name: Настройка lb01
+  hosts: balancer
+  become: true
+
+  tasks:
+    - name: Установка dnsmasq и nginx
+      apt:
+        name:
+          - dnsmasq
+          - nginx
+        state: present
+
+    - name: Отключить systemd-resolved на порту 53
+      lineinfile:
+        path: /etc/systemd/resolved.conf
+        regexp: '^#?DNSStubListener'
+        line: "DNSStubListener=no"
+
+    - name: Перезапустить systemd-resolved
+      systemd:
+        name: systemd-resolved
+        state: restarted
+
+    - name: Добавить lb01 в /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        line: "127.0.0.1 lb01"
+
+    - name: Копирование файла dnsmasq.conf
+      template:
+        src: dnsmasq.conf.j2
+        dest: /etc/dnsmasq.conf
+        owner: root
+        mode: "0644"
+      notify: Restart dnsmasq
+
+    - name: Enable dnsmasq
+      systemd:
+        name: dnsmasq
+        enabled: yes
+        state: started
+
+    - name: Создать директорию для SSL
+      file:
+        path: /etc/nginx/ssl
+        state: directory
+        owner: root
+        mode: "0755"
+
+    - name: Выпустить self-signed сертификат
+      command: >
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048
+        -keyout /etc/nginx/ssl/lb01.key
+        -out /etc/nginx/ssl/lb01.crt
+        -subj "/CN=lb01.lab.local/O=lab/C=FI"
+      args:
+        creates: /etc/nginx/ssl/lb01.crt
+    - name: Копирование конфига lab.conf
+      template:
+        src: lab.conf.j2
+        dest: /etc/nginx/sites-available/lab.conf
+        owner: root
+        mode: "0644"
+      notify: Restart nginx
+
+    - name: Включить конфиг nginx
+      file:
+        src: /etc/nginx/sites-available/lab.conf
+        dest: /etc/nginx/sites-enabled/lab.conf
+        state: link
+      notify: Restart nginx
+
+    - name: Удалить дефолтный конфиг
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: Restart nginx
+
+    - name: Enable nginx
+      systemd:
+        name: nginx
+        enabled: yes
+        state: started
+
+  handlers:
+    - name: Restart dnsmasq
+      service:
+        name: dnsmasq
+        state: restarted
+
+    - name: Restart nginx
+      service:
+        name: nginx
+        state: reloaded
