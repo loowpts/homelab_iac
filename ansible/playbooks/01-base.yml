@@ -39,6 +39,11 @@
         regexp: '^([^#].*\sswap\s.*)$'
         replace: '# \1'
 
+  - name: Добавить hostname в /etc/hosts
+    lineinfile:
+      path: /etc/hosts
+      line: "127.0.0.1 {{ inventory_hostname }}"
+
     - name: Задеплоить netplan конфиг
       template:
         src: 50-cloud-init.yml.j2
