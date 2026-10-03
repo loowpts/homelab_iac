@@ -1,0 +1,7 @@
+# Шаблон секретов. Скопировать в vault.yml, заполнить и зашифровать:
+#   cp vault.yml.example vault.yml
+#   ansible-vault encrypt vault.yml
+
+vault_db_app_password: "change-me"            # пользователь приложения в PostgreSQL
+vault_postgres_exporter_password: "change-me" # пользователь postgres_exporter
+vault_redis_password: "change-me"             # пароль Redis

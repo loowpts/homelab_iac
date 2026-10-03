@@ -47,7 +47,8 @@ terraform apply
 ```bash
 cd ansible
 
-# Зашифровать секреты перед первым запуском
+# Создать файл секретов из шаблона, заполнить и зашифровать
+cp inventory/group_vars/all/vault.yml.example inventory/group_vars/all/vault.yml
 ansible-vault encrypt inventory/group_vars/all/vault.yml
 echo "твой_мастер_пароль" > ~/.vault_pass && chmod 600 ~/.vault_pass
 
@@ -89,7 +90,8 @@ proxmox-lab/
     │   └── group_vars/
     │       ├── all/
     │       │   ├── vars.yml             # общие переменные
-    │       │   └── vault.yml            # секреты (зашифровать через ansible-vault)
+    │       │   ├── vault.yml.example    # шаблон секретов
+    │       │   └── vault.yml            # секреты (в .gitignore, зашифровать через ansible-vault)
     │       ├── webservers.yml
     │       └── databases.yml
     └── playbooks/
